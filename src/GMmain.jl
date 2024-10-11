@@ -406,7 +406,7 @@ function GM( fname::String,
     # --------------------------------------------------------------------------
     # allocation de memoire pour la structure de donnees -----------------------
 
-    vg = allocateDatastructure(nbgen, nbvar, nbobj)
+    vg = allocateDatastructure(nbgen, nbvar, nbobj) # vector of generators
 
     # --------------------------------------------------------------------------
     # --------------------------------------------------------------------------
@@ -570,6 +570,7 @@ function GM( fname::String,
 
     # Donne l'ensemble bornant primal obtenu + la frontiere correspondante -----
     #--> TODO : stocker l'EBP dans U proprement
+    
     X_EBP_frontiere, Y_EBP_frontiere, X_EBP, Y_EBP = ExtractEBP(d.XFeas, d.YFeas)
     plot(X_EBP_frontiere, Y_EBP_frontiere, color="green", markersize=3.0, marker="x")
     scatter(X_EBP, Y_EBP, color="green", s = 150, alpha = 0.3, label = L"y \in U")
@@ -597,13 +598,17 @@ function GM( fname::String,
         @printf("Quality measure: %5.2f %%\n", quality*100)
     end
 
+
+    return X_EBP_frontiere, Y_EBP_frontiere, X_EBP, Y_EBP
 end
 
 # ==============================================================================
 
-#@time GM("sppaa02.txt", 6, 20, 20)
-#@time GM("sppnw03.txt", 6, 20, 20) #pb glpk
-#@time GM("sppnw10.txt", 6, 20, 20)
-@time GM("didactic5.txt", 5, 5, 10)
-#@time GM("sppnw29.txt", 6, 30, 20)
+# @time GM("sppaa02.txt", 6, 20, 20)
+# @time GM("sppnw03.txt", 6, 20, 20) #pb glpk
+# @time GM("sppnw10.txt", 6, 20, 20)
+# @time GM("didactic5.txt", 5, 5, 10)
+# GM("didactic5.txt", 5, 5, 10)
+# @time GM("sppnw29.txt", 6, 30, 20)
+GM("sppnw29.txt", 6, 30, 20)
 nothing
