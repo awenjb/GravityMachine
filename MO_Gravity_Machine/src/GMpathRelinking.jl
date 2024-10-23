@@ -38,44 +38,100 @@ function naive_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{
 end
 
 
+# Utilise un 0-1 échange pour aller de la solution 1 vers la solution 2
+# Retourne tous les chemins de la solution 1 vers la solution 2 possibles
+function brute_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1})
+
+    # Solutions intermédiaires
+    intermediate_solutions = []
+    push!(intermediate_solutions, deepcopy(solution1))
+
+    # Indice des éléments différents
+    diff_indices = findall(x -> solution1.x[x] != solution2.x[x], 1:length(solution1.x))
+
+    # Nombre de solutions intermédiaires
+    n_changes = length(diff_indices)
+
+    # Parcourir toutes les combinaisons possibles de changements
+    for k in 0:(2^n_changes - 1)
+        # Créer une copie de la solution initiale
+        current_solution = deepcopy(solution1)
+
+        # Parcourir 
+        for j in 1:n_changes
+            # Vérifier si la variable j du nombre k est à 1
+            if (k >> (j - 1)) & 1 == 1
+
+                index = diff_indices[j]
+                current_solution.x[index] = solution2.x[index]
+
+                # Mise à jour des coûts
+                if solution2.x[index] == 1
+                    current_solution.y[1] += c1[index]
+                    current_solution.y[2] += c2[index]
+                else
+                    current_solution.y[1] -= c1[index]
+                    current_solution.y[2] -= c2[index]
+                end
+            end
+        end
+        
+        # Ajout de la solution intermédiaire au chemin
+        push!(intermediate_solutions, deepcopy(current_solution))
+    end
+
+	# supprimer doublons
+	supr = []
+	for i in eachindex(intermediate_solutions)
+        for j in (i+1):length(intermediate_solutions)
+            if intermediate_solutions[i].x == intermediate_solutions[j].x
+                push!(supr, j)
+            end
+        end
+    end
+    deleteat!(intermediate_solutions, supr)
+
+    return intermediate_solutions
+end	
+
 # Fonction de Path Relinking entre deux solutions binaires
 function path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1}, A,  mode)
 
+	path::Array{tSolution{Int64}} = []
+	
 	if mode=="N" 
 		@info "Mode Naive"
 		# Obtient un chemin
 		path = naive_path_relinking(solution1, solution2, c1, c2)
+	
+	end	
+	
+	if mode=="B" 
+		@info "Mode BruteForce"
+		# Obtient un chemin
+		path = brute_path_relinking(solution1, solution2, c1, c2)
+	
+	end	
+	var = length(path)
 		
-		var = length(path)
-		@info "Génération de $var solutions"
+	@info "Génération de $var solutions"
 		
-		supr = []
-		# Vérifier Admissibilité
-		for i in eachindex(path)
-			if check_admissibility(path[i], A) != true
-				push!(supr, i)
-			end
+	supr = []
+	# Vérifier Admissibilité
+	for i in eachindex(path)
+		if check_admissibility(path[i], A) != true
+			push!(supr, i)
 		end
-		deleteat!(path, supr)
-
-		supr = []
-		# Vérifier Dominance(regarder chaque paire de solutions)
-		for i in eachindex(path)
-			for j in eachindex(path)
-				if i != j && check_weak_dominance(path[i], path[j])
-					push!(supr, j)
-					break
-				end
-			end
-		end
-		unique!(supr)
-		deleteat!(path, supr)
-
-		var = length(path)-2
-		@info "$var nouvelles solutions admissibles non dominées trouvées"
-
-		return path
 	end
+	unique!(supr)
+	deleteat!(path, supr)
+
+	path = remove_dominated(path)
+
+	var = length(path)-2
+	@info "$var nouvelles solutions admissibles non dominées trouvées"
+
+	return path
 
 end
 
@@ -128,7 +184,6 @@ function remove_dominated(solutions::Array{tSolution{Int64}})
 		for j in eachindex(solutions)
 			if i != j && check_weak_dominance(solutions[i], solutions[j])
 				push!(supr, j)
-				break
 			end
 		end
 	end
@@ -148,14 +203,14 @@ nbvar = size(A)[2]
 ok0 =  tSolution{Int64}(ones(Int64,nbvar),zeros(Int64,2))
 ok1 =  tSolution{Int64}(ones(Int64,nbvar),zeros(Int64,2))
 
-ok0.x = [0,0,1,0,0,1,1,0]
-ok1.x = [1, 0, 0, 1, 1, 0, 0, 0]
+ok0.x = [0, 0, 1, 0, 0, 1, 1, 0]
+ok1.x = [1, 0, 0, 0, 1, 0, 1, 0]
 ok0.y = evaluerSolution(ok0.x, c1, c2)
 ok1.y = evaluerSolution(ok1.x, c1, c2)
 
 @show ok0, ok1
 
-path_relinking(ok0, ok1, c1, c2, A, "N")
+path_relinking(ok0, ok1, c1, c2, A, "B")
+
 
 =#
-
