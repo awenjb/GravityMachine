@@ -24,6 +24,7 @@ include("GMmopPrimitives.jl")  # usuals algorithms in multiobjective optimizatio
 include("GMperturbation.jl")   # routines dealing with the perturbation of a solution when a cycle is detected
 include("GMquality.jl")        # quality indicator of the bound set U generated
 
+include("GMpathRelinking.jl")
 
 # ==============================================================================
 # Ajout d'une solution relachee initiale a un generateur
@@ -545,10 +546,13 @@ function GM( fname::String,
 
     # ==========================================================================
     # Stockage à part des valeurs des variables  des points réalisables de vg pour path relinking
-    
-    vBin = Vector{tSolution{Int64}}(undef,nbgen)
+
+    # vU ensemble bornant supérieur (solutions non dominées)
+
+
+    vU = Vector{tSolution{Int64}}(undef,nbgen)
     for j = 1:nbgen
-        vBin[j] = tSolution{Int64}(zeros(Int64,nbvar),zeros(Int64,nbobj))
+        vU[j] = tSolution{Int64}(zeros(Int64,nbvar),zeros(Int64,nbobj))
     end
 
     vToSupr = zeros(Int64, 0)
@@ -557,40 +561,60 @@ function GM( fname::String,
         # test d'admissibilite et marquage de la solution le cas echeant -------
         if vg[k].sFea
             verbose ? @printf("→ Admissible \n") : nothing
-            vBin[k].x = vg[k].sInt.x
-            vBin[k].y = vg[k].sInt.y
+            vU[k].x = vg[k].sInt.x
+            vU[k].y = vg[k].sInt.y
         else
             verbose ? @printf("→ x          \n") : nothing
             push!(vToSupr, k)
         end
     end
 
-    @show vBin
-    @show vToSupr
-    @show size(vBin)[1]
-
-
 
     # Detection des doublons
-    unique!(vBin)
-    for i=1:size(vBin)[1] 
-        for j=(i+1):size(vBin)[1] 
-            if vBin[i].x == vBin[j].x
+    unique!(vU)
+    for i=1:size(vU)[1] 
+        for j=(i+1):size(vU)[1] 
+            if vU[i].x == vU[j].x
                 push!(vToSupr, j)
             end
         end
     end
     
     # Suppression des éléments non réalisables / doublons"
-    deleteat!(vBin, vToSupr)
+    deleteat!(vU, vToSupr)
+
+    vU = remove_dominated(vU)
 
     @printf("6) Post-Traitement avec Path-relinking sur les solutions\n\n")    
 
-    # TODO 
-    # Appliquer path relinking entre les solutions de vbin "puis les ajouter à vg si admissible et intéressante"
-    # utiliser c1 c2 
-    # tester admissibilite
+    @show length(vU)
+    # Pretty print U 
+    print("-------- vU \n")
+    for sol in vU
+        print(sol.y[1], " ,  ", sol.y[2] , "\n")
+    end
+
     
+    U = deepcopy(vU)
+    for i in 1:(length(vU)-1)
+        @info "-------- Solution $i"
+        path = path_relinking(vU[i], vU[i+1], c1, c2, A, "N")
+        # Enlever les solutions initiales et cibles
+        popfirst!(path)
+        pop!(path)
+        # Ajouter les nouvelles solutions à U
+        for sol in path
+            push!(U, sol)
+        end
+    end
+   
+    #=
+    # Pretty print U 
+    print("-------- U \n")
+    for sol in U
+        print(sol.x, "\n")
+    end
+    =#
 
     # ==========================================================================
     @printf("7) Edition des resultats \n\n")
@@ -624,17 +648,10 @@ function GM( fname::String,
     #--> TODO : stocker l'EBP dans U proprement
     X_EBP_frontiere, Y_EBP_frontiere, X_EBP, Y_EBP = ExtractEBP(d.XFeas, d.YFeas)
     
-    @show d.XFeas
-    @show d.YFeas
-
-    @show X_EBP
-    @show Y_EBP
-
 
     plot(X_EBP_frontiere, Y_EBP_frontiere, color="green", markersize=3.0, marker="x")
     scatter(X_EBP, Y_EBP, color="green", s = 150, alpha = 0.3, label = L"y \in U")
-    @show X_EBP
-    @show Y_EBP
+
 
 
 
@@ -645,8 +662,6 @@ function GM( fname::String,
      XN,YN = loadNDPoints2SPA(fname)
      plot(XN, YN, color="black", linewidth=0.75, marker="+", markersize=1.0, linestyle=":", label = L"y \in Y_N")
      scatter(XN, YN, color="black", marker="+")
-    @show XN
-    @show YN
 
     # Affiche le cadre avec les legendes des differents traces -----------------
     legend(bbox_to_anchor=[1,1], loc=0, borderaxespad=0, fontsize = "x-small")
@@ -665,7 +680,7 @@ end
 
 #@time GM("sppaa02.txt", 6, 20, 20)
 #@time GM("sppnw03.txt", 6, 20, 20) #pb glpk
-#@time GM("sppnw10.txt", 6, 20, 20)
-@time GM("didactic5.txt", 5, 5, 10)
+@time GM("sppnw10.txt", 6, 20, 20)
+#@time GM("didactic5.txt", 5, 5, 10)
 #@time GM("sppnw29.txt", 6, 30, 20)
 nothing
