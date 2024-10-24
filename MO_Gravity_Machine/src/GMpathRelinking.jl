@@ -517,6 +517,7 @@ function remove_dominated(solutions::Array{tSolution{Int64}})
 	return solutions
 end
 
+#=
 
 c1, c2, A = loadInstance2SPA("didactic5.txt") 
 
@@ -538,3 +539,4 @@ ok1.y = evaluerSolution(ok1.x, c1, c2)
 @show ok0, ok1
 
 path_relinking(ok0, ok1, c1, c2, A, "S")
+=#
