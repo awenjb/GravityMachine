@@ -465,6 +465,9 @@ function GM( fname::String,
 
     @printf("4) terraformation generateur par generateur \n\n")
 
+    nonFeasibleSolutions = Vector{tSolution{Int64}}(undef,0)
+
+
     for k in [i for i in 1:nbgen if !isFeasible(vg,i)]
         temps = time()
         trial = 0
@@ -475,7 +478,7 @@ function GM( fname::String,
         # rounding solution : met a jour sInt dans vg --------------------------
         #roundingSolution!(vg,k,c1,c2,d)  # un cone
         #roundingSolutionnew24!(vg,k,c1,c2,d) # deux cones
-        roundingSolutionNew23!(vg,k,c1,c2,d) # un cone et LS sur generateur
+        push!(nonFeasibleSolutions, roundingSolutionNew23!(vg,k,c1,c2,d)) # un cone et LS sur generateur
 
         push!(H,[vg[k].sInt.y[1],vg[k].sInt.y[2]])
         println("   t=",trial,"  |  Tps=", round(time()- temps, digits=4))
@@ -493,7 +496,7 @@ function GM( fname::String,
                 # rounding solution : met a jour sInt dans vg --------------------------
                 #roundingSolution!(vg,k,c1,c2,d)
                 #roundingSolutionnew24!(vg,k,c1,c2,d)
-                roundingSolutionNew23!(vg,k,c1,c2,d)
+                push!(nonFeasibleSolutions, roundingSolutionNew23!(vg,k,c1,c2,d))
                 println("   t=",trial,"  |  Tps=", round(time()- temps, digits=4))
 
                 # test detection cycle sur solutions entieres ------------------
@@ -504,7 +507,7 @@ function GM( fname::String,
                     perturbSolution30!(vg,k,c1,c2,d)
                 end
                 push!(H,[vg[k].sInt.y[1],vg[k].sInt.y[2]])
-
+    
             end
         end
         if t1
@@ -570,6 +573,7 @@ function GM( fname::String,
     end
 
 
+
     # Detection des doublons
     unique!(vU)
     for i=1:size(vU)[1] 
@@ -631,8 +635,8 @@ function GM( fname::String,
 
     # Donne les points entiers -------------------------------------------------
     graphic ? scatter(d.XInt,d.YInt,color="orange", marker="s", label = L"y"*" rounded") : nothing
-#    @show d.XInt
-#    @show d.YInt
+    # @show d.XInt
+    # @show d.YInt
 
     # Donne les points apres projection Δ(x,x̃) ---------------------------------
     graphic ? scatter(d.XProj,d.YProj, color="red", marker="x", label = L"y"*" projected") : nothing
@@ -643,6 +647,30 @@ function GM( fname::String,
     graphic ? scatter(d.XFeas,d.YFeas, color="green", marker="o", label = L"y \in F") : nothing
 #    @show d.XFeas
 #    @show d.YFeas
+
+    println("##########################################")
+    println("non feasible solutions :")
+    
+
+    println(first(nonFeasibleSolutions).x)
+
+    for e in nonFeasibleSolutions
+        println(e.y)
+    end
+
+    println("##########################################")
+    println("##########################################")
+
+    println("##########################################")
+    println("actual non feasible solutions :")
+    tttt = [(d.XInt[i], d.YInt[i]) for i in 1:length(d.XInt)]
+    println(tttt)
+
+    println("##########################################")
+    println("##########################################")
+    
+    # Plots the collected non feasible integer solutions ?
+    graphic ? scatter([e.y[1] for e in nonFeasibleSolutions], [e.y[2] for e in nonFeasibleSolutions], color="orange", marker="s", label= "int sols") : nothing
 
     # Donne l'ensemble bornant primal obtenu + la frontiere correspondante -----
     #--> TODO : stocker l'EBP dans U proprement

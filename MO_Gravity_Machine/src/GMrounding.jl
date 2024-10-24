@@ -320,10 +320,12 @@ function roundingSolutionNew23!(vg::Vector{tGenerateur}, k::Int64, c1::Array{Int
         # archivage pour tous les generateurs
         push!(d.XInt,vg[k].sInt.y[1])
         push!(d.YInt,vg[k].sInt.y[2])
+        return vg[k].sInt
     elseif generateurVisualise == k
         # archivage seulement pour le generateur k
         push!(d.XInt,vg[k].sInt.y[1])
         push!(d.YInt,vg[k].sInt.y[2])
+        return vg[k].sInt
     end      
 
 end
