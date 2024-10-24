@@ -1,4 +1,5 @@
 include("GMdatastructures.jl")
+include("GMjumpModels.jl")
 # ==============================================================================
 # Path relinking between two solution
 
@@ -94,6 +95,81 @@ function brute_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{
     return intermediate_solutions
 end	
 
+# ça fonctionne pas
+function heuristic_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1})
+
+    # Solutions intermédiaires
+    intermediate_solutions = []
+    push!(intermediate_solutions, deepcopy(solution1))
+
+    # Indice des éléments différents
+    diff_indices = findall(x -> solution1.x[x] != solution2.x[x], 1:length(solution1.x))
+
+    # Solution courrante
+    current_solution1 = deepcopy(solution1)
+	current_solution2 = deepcopy(solution1)
+
+	# TODO 
+	# resoudre sous problem de SPA avec les indices de diff_indices
+
+	supr::Vector{Int64} = []
+	for (i, line) in enumerate(eachrow(A))
+		if !ligne_a_1_dans_indices(line, diff_indices)
+			push!(supr, i)
+		end
+	end
+
+	#indices_filtres = setdiff(1:size(A, 2), diff_indices)
+
+	# réduire la matrice avec seulement les lignes ou des variables de diff_indices apparaissent
+    A_reduce = A[setdiff(1:size(A, 1), supr), :]
+	# réduire la matrice avec seulement les colonnes ou des variables de diff_indices apparaissent
+	A_reduce = A_reduce[:, setdiff(1:size(A, 2), setdiff(1:size(A, 2), diff_indices))]
+
+	c1_reduce = deleteat!(copy(c1), setdiff(1:size(A, 2), diff_indices))
+	c2_reduce = deleteat!(copy(c2), setdiff(1:size(A, 2), diff_indices))
+
+	# résoudre le pb 
+	zRL1, xRL1 = computeLinearRelax2SPA(size(A_reduce, 2), size(A_reduce, 1), A_reduce, c1_reduce, c2_reduce, typemax(Int), 1) 
+	zRL2, xRL2 = computeLinearRelax2SPA(size(A_reduce, 2), size(A_reduce, 1), A_reduce, c1_reduce, c2_reduce, typemax(Int), 2) 
+	
+	# Arrondir solutions à l'entier le plus proche
+
+	for i in 1:size(A_reduce, 2)
+		xRL1[i] = round(xRL1[i])
+		xRL2[i] = round(xRL2[i])
+	end
+
+	# Créer solution intermédiaire avec les morceaux de solutions trouvés
+	k=1
+	for i in diff_indices
+		current_solution1.x[i] = xRL1[k]
+		current_solution2.x[i] = xRL2[k]
+		k += 1
+	end
+
+	# Evaluer solutions
+	current_solution1.y = evaluerSolution(current_solution1.x, c1, c2)
+	current_solution2.y = evaluerSolution(current_solution2.x, c1, c2)
+	
+	push!(intermediate_solutions, current_solution1)
+	push!(intermediate_solutions, current_solution2)
+	
+		# supprimer doublons
+		supr = []
+		for i in eachindex(intermediate_solutions)
+			for j in (i+1):length(intermediate_solutions)
+				if intermediate_solutions[i].x == intermediate_solutions[j].x
+					push!(supr, j)
+				end
+			end
+		end
+		deleteat!(intermediate_solutions, supr)
+
+    return intermediate_solutions
+
+end	
+
 # Fonction de Path Relinking entre deux solutions binaires
 function path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1}, A,  mode)
 
@@ -112,6 +188,14 @@ function path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}
 		path = brute_path_relinking(solution1, solution2, c1, c2)
 	
 	end	
+
+	if mode=="H1" 
+		@info "Mode Heuristique 1"
+		# Obtient un chemin
+		path = heuristic_path_relinking(solution1, solution2, c1, c2)
+	end	
+
+
 	var = length(path)
 		
 	@info "Génération de $var solutions"
@@ -178,6 +262,10 @@ function check_weak_dominance(solution1::tSolution{Int64}, solution2::tSolution{
 	return all(solution1.y .<= solution2.y)
 end
 
+function line_with_1(line, index)
+    any(line[idx] == 1 for idx in index)
+end
+
 function remove_dominated(solutions::Array{tSolution{Int64}})
 	supr = []
 	for i in eachindex(solutions)
@@ -210,7 +298,5 @@ ok1.y = evaluerSolution(ok1.x, c1, c2)
 
 @show ok0, ok1
 
-path_relinking(ok0, ok1, c1, c2, A, "B")
-
-
+path_relinking(ok0, ok1, c1, c2, A, "H1")
 =#
