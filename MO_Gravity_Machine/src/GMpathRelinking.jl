@@ -119,7 +119,7 @@ function path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}
 	supr = []
 	# Vérifier Admissibilité
 	for i in eachindex(path)
-		if check_admissibility(path[i], A) != true
+		if isFeasible(path[i], A) != true
 			push!(supr, i)
 		end
 	end
@@ -165,6 +165,15 @@ function check_admissibility(solution::tSolution{Int64}, A::Matrix{Int})
     end
     return true
 end
+
+# Replace check_admissibility by isFeasible in all code
+"""
+Tests wether a solution 
+"""
+function isFeasible(sol::tSolution, A::Matrix)
+	return all(A*sol.x .== 1)
+end
+
 
 # Vérifie si la solution 1 est meilleure que la solution 2
 # utilise les définitions du cours de MO

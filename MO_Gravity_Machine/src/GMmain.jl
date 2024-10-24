@@ -674,6 +674,7 @@ function GM( fname::String,
         @printf("Quality measure: %5.2f %%\n", quality*100)
     end
 
+    println(" X INTEGER (ROUNDED)")
 end
 
 # ==============================================================================
