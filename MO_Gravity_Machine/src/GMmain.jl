@@ -600,7 +600,7 @@ function GM( fname::String,
     U = deepcopy(vU)
     for i in 1:(length(vU)-1)
         @info "-------- Solution $i"
-        path = path_relinking(vU[i], vU[i+1], c1, c2, A, "H1")
+        path = path_relinking(vU[i], vU[i+1], c1, c2, A, "N")
         # Enlever les solutions initiales et cibles
         popfirst!(path)
         pop!(path)

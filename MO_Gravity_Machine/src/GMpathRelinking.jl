@@ -3,6 +3,72 @@ include("GMjumpModels.jl")
 # ==============================================================================
 # Path relinking between two solution
 
+
+# ==============================================================================
+# Utilise un 0-1 échange pour aller de la solution 1 vers la solution 2
+# Retourne un chemin de la solution 1 vers la solution 2 en prenant le plus prometteur
+# Pas de vérification d'admissibilté
+# Faire une vérif d'admissibilité ???? met tout à 0 :c
+# TODO Finir
+function simple_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1})
+
+	# Solution courrante
+	current_solution = deepcopy(solution1)
+	
+	# Solutions intermediaires
+	intermediate_solution = []
+	push!(intermediate_solution, solution1)
+
+	# Indice des éléments différents
+	diff_indices = findall(x -> solution1.x[x] != solution2.x[x], 1:length(solution1.x))
+
+	n_changes = length(diff_indices)
+
+	best_change = 0
+
+	# Explorer le chemin vers la solution guide
+	for j in 1:n_changes
+		@show diff_indices
+
+		best_solution = deepcopy(current_solution)
+		tmp_solution = deepcopy(current_solution)
+
+		for i in diff_indices
+
+			# Modifier l'indice
+			tmp_solution.x[i] = solution2.x[i]
+			
+			# Calcul du coût
+			if solution2.x[i] == 1 
+				tmp_solution.y[1] += c1[i]
+				tmp_solution.y[2] += c2[i]
+			else 
+				tmp_solution.y[1] -= c1[i]
+				tmp_solution.y[2] -= c2[i]
+			end
+
+			# check dominance par rapport à best 
+			if check_weak_dominance(tmp_solution, best_solution)
+				best_change = i
+				best_solution = deepcopy(tmp_solution)
+			end
+			
+			tmp_solution = deepcopy(current_solution)
+		end
+		# update diff_indices
+		setdiff!(diff_indices, best_change)
+
+		@info "On a ajoute"
+		@show best_solution
+		# Ajout au chemin
+		current_solution = best_solution
+		push!(intermediate_solution, deepcopy(current_solution))
+	end
+	push!(intermediate_solution, solution2)
+	return intermediate_solution
+end
+
+
 # ==============================================================================
 # Utilise un 0-1 échange pour aller de la solution 1 vers la solution 2
 # Retourne un chemin de la solution 1 vers la solution 2
@@ -239,7 +305,7 @@ function heuristic2_path_relinking(solution1::tSolution{Int64}, solution2::tSolu
 		optimize!(model)
 
 		# Récupérer résultats
-		current_solution.x = value.(x)
+		current_solution.x = value.(x)  #TODO gérer les approximations et fractions dans .x
 
 		@info "Solutions du soveurs"
 
@@ -328,6 +394,13 @@ function path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}
 
 	path::Array{tSolution{Int64}} = []
 	
+	if mode=="S" 
+		@info "Mode Simple"
+		# Obtient un chemin
+		path = simple_path_relinking(solution1, solution2, c1, c2)
+	
+	end	
+
 	if mode=="N" 
 		@info "Mode Naive"
 		# Obtient un chemin
@@ -464,4 +537,4 @@ ok1.y = evaluerSolution(ok1.x, c1, c2)
 
 @show ok0, ok1
 
-path_relinking(ok0, ok1, c1, c2, A, "H2")
+path_relinking(ok0, ok1, c1, c2, A, "S")
