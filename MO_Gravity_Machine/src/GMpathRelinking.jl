@@ -3,6 +3,7 @@ include("GMjumpModels.jl")
 # ==============================================================================
 # Path relinking between two solution
 
+# ==============================================================================
 # Utilise un 0-1 échange pour aller de la solution 1 vers la solution 2
 # Retourne un chemin de la solution 1 vers la solution 2
 function naive_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1})
@@ -38,7 +39,7 @@ function naive_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{
 	return intermediate_solution
 end
 
-
+# ==============================================================================
 # Utilise un 0-1 échange pour aller de la solution 1 vers la solution 2
 # Retourne tous les chemins de la solution 1 vers la solution 2 possibles
 function brute_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1})
@@ -95,8 +96,10 @@ function brute_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{
     return intermediate_solutions
 end	
 
-# ça fonctionne pas
-function heuristic_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1})
+# ==============================================================================
+# ça fonctionne pas, faire un sous pb et le résoudre pour compléter les solutons intermédiaires.
+# -> semble retourner soit la solution cible/ soit la solution initiale
+function heuristic_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1}, A)
 
     # Solutions intermédiaires
     intermediate_solutions = []
@@ -109,12 +112,14 @@ function heuristic_path_relinking(solution1::tSolution{Int64}, solution2::tSolut
     current_solution1 = deepcopy(solution1)
 	current_solution2 = deepcopy(solution1)
 
-	# TODO 
 	# resoudre sous problem de SPA avec les indices de diff_indices
 
+	#@show size(A)
+	#@show diff_indices
+	
 	supr::Vector{Int64} = []
 	for (i, line) in enumerate(eachrow(A))
-		if !ligne_a_1_dans_indices(line, diff_indices)
+		if !line_with_1(line, diff_indices)
 			push!(supr, i)
 		end
 	end
@@ -155,6 +160,109 @@ function heuristic_path_relinking(solution1::tSolution{Int64}, solution2::tSolut
 	push!(intermediate_solutions, current_solution1)
 	push!(intermediate_solutions, current_solution2)
 	
+	push!(intermediate_solutions, deepcopy(solution2))
+	
+	for sol in intermediate_solutions 
+		#println(sol.x)
+		println(sol.y)
+    end
+
+	# supprimer doublons
+	supr = []
+	for i in eachindex(intermediate_solutions)
+		for j in (i+1):length(intermediate_solutions)
+			if intermediate_solutions[i].x == intermediate_solutions[j].x
+				push!(supr, j)
+			end
+		end
+	end
+	deleteat!(intermediate_solutions, supr)
+
+    return intermediate_solutions
+
+end	
+
+
+# ==============================================================================
+# Idée :
+# Pour la 1ere variable en conflit entre s1 et s2, fixer s1 à la valeure de s2, 
+# résoudre le sous problème résultant avec relax linéaire puis arrondir pour obtenir une nouvelle solution
+# faire ça pour chaque variable ???
+function heuristic2_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1})
+  
+	# Solutions intermédiaires
+    intermediate_solutions = []
+    push!(intermediate_solutions, deepcopy(solution1))
+
+    # Indice des éléments différents
+    diff_indices = findall(x -> solution1.x[x] != solution2.x[x], 1:length(solution1.x))
+
+    # Solution courrante
+    current_solution = deepcopy(solution1)
+
+	# fixer première variable conflictuelle à la valeur de la solutoon cible
+	current_solution.x[diff_indices[1]] = solution2.x[diff_indices[1]]
+
+
+	# resoudre sous problem de SPA avec les indices de diff_indices suivants
+
+	supr::Vector{Int64} = []
+	for (i, line) in enumerate(eachrow(A))
+		if !line_with_1(line, diff_indices)
+			push!(supr, i)
+		end
+	end
+	
+	# réduire la matrice avec seulement les lignes ou des variables de diff_indices apparaissent
+    A_reduce = A[setdiff(1:size(A, 1), supr), :]
+	# réduire la matrice avec seulement les colonnes ou des variables de diff_indices apparaissent
+	A_reduce = A_reduce[:, setdiff(1:size(A, 2), setdiff(1:size(A, 2), diff_indices))]
+
+	c1_reduce = deleteat!(copy(c1), setdiff(1:size(A, 2), diff_indices))
+	c2_reduce = deleteat!(copy(c2), setdiff(1:size(A, 2), diff_indices))
+
+	# résoudre le pb 
+	#================================# #MODEL 
+	#=
+	model = Model(GLPK.Optimizer)
+	@variable(model, 0.0 <= x[1:nbvar] <= 1.0 )
+	@constraint(model, [i=1:nbctr],(sum((x[j]*A[i,j]) for j in 1:nbvar)) == 1)
+	if obj == 1
+	  @objective(model, Min, sum((c1[i])*x[i] for i in 1:nbvar))
+	  @constraint(model, sum((c2[i])*x[i] for i in 1:nbvar) <= epsilon)
+	else
+	  @objective(model, Min, sum((c2[i])*x[i] for i in 1:nbvar))
+	  @constraint(model, sum((c1[i])*x[i] for i in 1:nbvar) <= epsilon)
+	end
+	optimize!(model)
+	return objective_value(model), value.(x)
+	=#
+
+	#===========================================#
+
+
+	# Arrondir solutions à l'entier le plus proche
+
+	for i in 1:size(A_reduce, 2)
+		xRL1[i] = round(xRL1[i])
+		xRL2[i] = round(xRL2[i])
+	end
+
+	# Créer solution intermédiaire avec les morceaux de solutions trouvés
+	k=1
+	for i in diff_indices
+		current_solution1.x[i] = xRL1[k]
+		current_solution2.x[i] = xRL2[k]
+		k += 1
+	end
+
+	# Evaluer solutions
+	current_solution1.y = evaluerSolution(current_solution1.x, c1, c2)
+	current_solution2.y = evaluerSolution(current_solution2.x, c1, c2)
+	
+	push!(intermediate_solutions, current_solution1)
+	push!(intermediate_solutions, current_solution2)
+	
 		# supprimer doublons
 		supr = []
 		for i in eachindex(intermediate_solutions)
@@ -169,6 +277,9 @@ function heuristic_path_relinking(solution1::tSolution{Int64}, solution2::tSolut
     return intermediate_solutions
 
 end	
+
+
+
 
 # Fonction de Path Relinking entre deux solutions binaires
 function path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1}, A,  mode)
@@ -192,9 +303,15 @@ function path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}
 	if mode=="H1" 
 		@info "Mode Heuristique 1"
 		# Obtient un chemin
-		path = heuristic_path_relinking(solution1, solution2, c1, c2)
+		path = heuristic_path_relinking(solution1, solution2, c1, c2, A)
 	end	
 
+
+	if mode=="H2" 
+		@info "Mode Heuristique 2"
+		# Obtient un chemin
+		path = heuristic2_path_relinking(solution1, solution2, c1, c2)
+	end	
 
 	var = length(path)
 		
@@ -292,11 +409,13 @@ ok0 =  tSolution{Int64}(ones(Int64,nbvar),zeros(Int64,2))
 ok1 =  tSolution{Int64}(ones(Int64,nbvar),zeros(Int64,2))
 
 ok0.x = [0, 0, 1, 0, 0, 1, 1, 0]
-ok1.x = [1, 0, 0, 0, 1, 0, 1, 0]
+#ok1.x = [1, 0, 0, 0, 1, 0, 1, 0]
+ok1.x = [1, 0, 0, 1, 1, 0, 0, 0]
+
 ok0.y = evaluerSolution(ok0.x, c1, c2)
 ok1.y = evaluerSolution(ok1.x, c1, c2)
 
 @show ok0, ok1
 
-path_relinking(ok0, ok1, c1, c2, A, "H1")
+path_relinking(ok0, ok1, c1, c2, A, "B")
 =#

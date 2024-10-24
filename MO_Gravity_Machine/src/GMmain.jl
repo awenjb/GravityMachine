@@ -590,15 +590,17 @@ function GM( fname::String,
     @show length(vU)
     # Pretty print U 
     print("-------- vU \n")
+
     for sol in vU
         print(sol.y[1], " ,  ", sol.y[2] , "\n")
+        #print(sol.x , "\n")
     end
 
     
     U = deepcopy(vU)
     for i in 1:(length(vU)-1)
         @info "-------- Solution $i"
-        path = path_relinking(vU[i], vU[i+1], c1, c2, A, "N")
+        path = path_relinking(vU[i], vU[i+1], c1, c2, A, "H1")
         # Enlever les solutions initiales et cibles
         popfirst!(path)
         pop!(path)
