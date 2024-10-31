@@ -543,13 +543,12 @@ function GM( fname::String,
     end
     #--> TODO : stocker l'EBP dans U proprement
 
-
+    # ==========================================================================
+    # AJOUT POST-TRAITEMENT
     # ==========================================================================
     # Stockage à part des valeurs des variables  des points réalisables de vg pour path relinking
 
     # vU ensemble bornant supérieur (solutions non dominées)
-
-
     vU = Vector{tSolution{Int64}}(undef,nbgen)
     for j = 1:nbgen
         vU[j] = tSolution{Int64}(zeros(Int64,nbvar),zeros(Int64,nbobj))
@@ -557,8 +556,9 @@ function GM( fname::String,
 
     vToSupr = zeros(Int64, 0)
 
+    # Verification d'admissibilite
     for k=1:nbgen
-        # test d'admissibilite et marquage de la solution le cas echeant -------
+        # test d'admissibilite et marquage de la solution le cas echeant 
         if vg[k].sFea
             verbose ? @printf("→ Admissible \n") : nothing
             vU[k].x = copy(vg[k].sInt.x)
@@ -568,7 +568,6 @@ function GM( fname::String,
             push!(vToSupr, k)
         end
     end
-
 
     # Detection des doublons
     unique!(vU)
@@ -580,14 +579,15 @@ function GM( fname::String,
         end
     end
     
-    # Suppression des éléments non réalisables / doublons"
+    # Suppression des solutions non réalisables / doublons
     deleteat!(vU, vToSupr)
 
     vU = remove_dominated(vU)
 
-    @printf("6) Post-Traitement avec Path-relinking sur les solutions\n\n")    
+    @printf("6) Post-Traitement avec Path-relinking sur les solutions \n\n")    
 
     @show length(vU)
+    #=
     # Pretty print U 
     print("-------- vU \n")
 
@@ -595,9 +595,17 @@ function GM( fname::String,
         print(sol.y[1], " ,  ", sol.y[2] , "\n")
         print(sol.x , "\n")
     end
-
+    =#
+    @println("On a U contenant ", length(vU), " solutions")
     
     U = deepcopy(vU)
+
+    # STRATEGIE de Path-relinking
+    # Relier les solutions une a une d'une lexico à l'autre
+    # Autre stratégies (non implémentées)
+    # - Relier toutes les paires de solutions de U (couteux si U grand)
+    # - Relier les paires de solutions de U ayant au moins x bits de différences (quel x ?)
+
     for i in 1:(length(vU)-1)
         @info "-------- Solution $i"
         path = path_relinking(vU[i], vU[i+1], c1, c2, A, "B")
@@ -610,13 +618,22 @@ function GM( fname::String,
         end
     end
    
-    #=
-    # Pretty print U 
-    print("-------- U \n")
-    for sol in U
-        print(sol.x, "\n")
+    vToSupr = []
+    # Detection des doublons
+    for i=1:size(U)[1] 
+        for j=(i+1):size(U)[1] 
+            if U[i].x == U[j].x
+                push!(vToSupr, j)
+            end
+        end
     end
-    =#
+    deleteat!(U, vToSupr)
+
+    @println("Ajout dans U de ", length(U)-length(vU), " nouvelles solutions")
+
+    # ==========================================================================
+    # FIN AJOUT POST-TRAITEMENT
+    # ==========================================================================
 
     # ==========================================================================
     @printf("7) Edition des resultats \n\n")
