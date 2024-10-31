@@ -1,71 +1,69 @@
+using JuMP, GLPK, Printf, Random, Plots
 include("GMdatastructures.jl")
 include("GMjumpModels.jl")
+include("GMparsers.jl")
+
+
+
 # ==============================================================================
 # Path relinking between two solution
 
 
 # ==============================================================================
-# Utilise un 0-1 échange pour aller de la solution 1 vers la solution 2
-# Retourne un chemin de la solution 1 vers la solution 2 en prenant le plus prometteur
-# Pas de vérification d'admissibilté
-# Faire une vérif d'admissibilité ???? met tout à 0 :c
-# TODO Finir
-function simple_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1})
+# Utilise un 0-1 échange pour aller de la solution 1 vers la solution 2 de façon aléatoire
+# Ne garde que les solutions non dominées
+function simple_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1}, A)
 
-	# Solution courrante
-	current_solution = deepcopy(solution1)
-	
+    best_solution = solution1
+    current_solution = deepcopy(solution1)
+    
 	# Solutions intermediaires
 	intermediate_solution = []
 	push!(intermediate_solution, solution1)
 
-	# Indice des éléments différents
-	diff_indices = findall(x -> solution1.x[x] != solution2.x[x], 1:length(solution1.x))
-
-	n_changes = length(diff_indices)
-
-	best_change = 0
-
-	# Explorer le chemin vers la solution guide
-	for j in 1:n_changes
-		@show diff_indices
-
-		best_solution = deepcopy(current_solution)
-		tmp_solution = deepcopy(current_solution)
-
-		for i in diff_indices
+    while current_solution.x != solution2.x
+        # Trouver les sous-ensembles qui diffèrent entre la solution courante et la destination
+        diff_indices = findall(x -> solution1.x[x] != solution2.x[x], 1:length(solution1.x))
+        
+        # Si plus de différences, appliquer un changement pour se rapprocher de solution_end
+        if !isempty(diff_indices)
+            # Choisir un sous-ensemble diffèrent aléatoirement et le remplacer pour se rapprocher de la destination
+            idx_change = rand(diff_indices)
 
 			# Modifier l'indice
-			tmp_solution.x[i] = solution2.x[i]
+			current_solution.x[idx_change] = solution2.x[idx_change]
 			
 			# Calcul du coût
-			if solution2.x[i] == 1 
-				tmp_solution.y[1] += c1[i]
-				tmp_solution.y[2] += c2[i]
+			if solution2.x[idx_change] == 1 
+				current_solution.y[1] += c1[idx_change]
+				current_solution.y[2] += c2[idx_change]
 			else 
-				tmp_solution.y[1] -= c1[i]
-				tmp_solution.y[2] -= c2[i]
+				current_solution.y[1] -= c1[idx_change]
+				current_solution.y[2] -= c2[idx_change]
 			end
 
-			# check dominance par rapport à best 
-			if check_weak_dominance(tmp_solution, best_solution)
-				best_change = i
-				best_solution = deepcopy(tmp_solution)
-			end
-			
-			tmp_solution = deepcopy(current_solution)
-		end
-		# update diff_indices
-		setdiff!(diff_indices, best_change)
+            # Mettre à jour la meilleure solution si amélioration
+            if check_weak_dominance(current_solution, best_solution)
+				if check_admissibility(current_solution, A)
+					@show "est admissible"
+					best_solution = deepcopy(current_solution)
+					# si la solution est intéressante, update solutions intermédiaires
+					@show best_solution
+					push!(intermediate_solution, deepcopy(current_solution))
+				end
+            end
 
-		@info "On a ajoute"
-		@show best_solution
-		# Ajout au chemin
-		current_solution = best_solution
-		push!(intermediate_solution, deepcopy(current_solution))
-	end
+			filter!(x -> x != idx_change, diff_indices)
+
+        else
+            break  # plus rien à modifier, on s'arrête
+        end
+    end
+
 	push!(intermediate_solution, solution2)
-	return intermediate_solution
+
+	@show intermediate_solution
+    return intermediate_solution
 end
 
 
@@ -159,6 +157,51 @@ function brute_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{
     end
 	unique!(supr)
     deleteat!(intermediate_solutions, supr)
+
+
+	
+	# affichage ?
+	println("---Affichage")
+	z1::Vector{Float64} = []
+	z2::Vector{Float64} = []
+	for sol in intermediate_solutions
+		push!(z1, sol.y[1])
+		push!(z2, sol.y[2])
+	end
+	@show z1
+	@show z2
+	
+	Uz1::Vector{Float64} = [14.0,18.0,20.0,21.0]
+	Uz2::Vector{Float64} = [48.0,16.0,7.0,4.0]
+
+	z1 = vcat(Uz1, z1)
+	z2 = vcat(Uz2, z2)
+	@show length(z1)
+
+	colors = fill(:blue, length(z1))  # Tous les points sont bleus
+	colors[1] = :green  # Premier point rouge
+	colors[2] = :green  # Premier point rouge
+	colors[3] = :green  # Premier point rouge
+	colors[4] = :green  # Premier point rouge
+	colors[5] = :red  # Premier point rouge
+	colors[41] = :orange  # Premier point rouge
+	colors[end] = :red  # Dernier point rouge
+
+	@show z1[41], z2[41]
+
+	markersizes = fill(4, length(z1))  # Taille standard pour tous les points
+	markersizes[1] = 8 # Premier point rouge
+	markersizes[2] = 8 # Premier point rouge
+	markersizes[3] = 8 # Premier point rouge
+	markersizes[4] = 8 # Premier point rouge
+	markersizes[41] = 8
+	markersizes[5] = 4  # Taille plus grande pour le premier point
+	markersizes[end] = 4
+
+	pl = scatter(z1, z2, label="Enum", color=colors, marker=:circle, markersize=markersizes, linewidth=2)
+	display(pl)
+	
+
 
     return intermediate_solutions
 end	
@@ -387,6 +430,98 @@ function heuristic2_path_relinking(solution1::tSolution{Int64}, solution2::tSolu
 end	
 
 
+# ==============================================================================
+# Idée :
+# Pour la 1ere variable en conflit entre s1 et s2, fixer s1 à la valeure de s2,
+# résoudre le sous problème résultant avec relax linéaire puis arrondir pour obtenir une nouvelle solution
+# ajouter un ranking ???
+function heuristic4_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1}, A)
+
+	# Solution courrante
+	current_solution = deepcopy(solution1)
+
+	# Solutions intermediaires
+	intermediate_solutions = []
+	push!(intermediate_solutions, solution1)
+
+	# Indice des éléments différents
+	diff_indices = findall(x -> solution1.x[x] != solution2.x[x], 1:length(solution1.x))
+
+	# Explorer le chemin vers la solution guide
+	# pour chaque indice, résoudre un pb relaché
+
+	# récupérer les variables à 1 et 0 communes pour les fixer
+	x_s1 = copy(solution1.x)
+
+	v1 = findall(x -> x == 1, x_s1)
+	v0 = findall(x -> x == 0, x_s1)
+	filter!(x -> !(x in diff_indices), v0)
+	filter!(x -> !(x in diff_indices), v1)
+
+	nbvar = size(A,2)
+	nbctr = size(A,1)
+
+	n_changes = length(diff_indices)
+
+	#for i in 1:n_changes
+
+		println("-----------------------------------")
+
+		λ = (solution1.y[2] - solution2.y[2], solution2.y[1] - solution1.y[1])  
+
+		# poser le sous problème
+		model = Model(GLPK.Optimizer)
+		@variable(model, 0.0 <= x[1:nbvar] <= 1.0 ) # variable reel
+		@constraint(model, [i=1:nbctr],(sum((x[j]*A[i,j]) for j in 1:nbvar)) == 1)
+
+		# fixer les variables 
+		@constraint(model, [i=1:length(v1)], x[v1[i]] == 1)
+		@constraint(model, [i=1:length(v0)], x[v0[i]] == 0)
+
+		# fixer une epsilon
+		@constraint(model, sum((c1[i])*x[i] for i in 1:nbvar) <= solution2.y[1]-1) #objectif 1
+		@constraint(model, sum((c2[i])*x[i] for i in 1:nbvar) <= solution1.y[2]-1) #objectif 2
+
+		@objective(model, Min, λ[1]*sum((c1[i])*x[i] for i in 1:nbvar) +  λ[2]*sum((c2[i])*x[i] for i in 1:nbvar) )
+
+		optimize!(model)
+
+		# Récupérer résultats
+		relax_x = value.(x)
+		relax_x_int::Vector{Int64} = []
+		for i in eachindex(relax_x)
+			push!(relax_x_int, Int64(round(relax_x[i])))
+		end
+
+		current_solution = deepcopy(solution1)
+		current_solution.x = relax_x_int
+		current_solution.y = evaluerSolution(current_solution.x, c1, c2)
+
+		@show check_admissibility(current_solution, A)
+		@show relax_x
+		@show relax_x_int
+		@show solution1.x
+		@show solution2.x
+
+		push!(intermediate_solutions, current_solution)
+
+		push!(intermediate_solutions, solution2)
+
+	# supprimer doublons
+	supr = []
+	for i in eachindex(intermediate_solutions)
+		for j in (i+1):length(intermediate_solutions)
+			if intermediate_solutions[i].x == intermediate_solutions[j].x
+				push!(supr, j)
+			end
+		end
+	end
+	unique!(supr)
+	deleteat!(intermediate_solutions, supr)
+
+	return intermediate_solutions
+
+end	
 
 
 # Fonction de Path Relinking entre deux solutions binaires
@@ -397,7 +532,7 @@ function path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}
 	if mode=="S" 
 		@info "Mode Simple"
 		# Obtient un chemin
-		path = simple_path_relinking(solution1, solution2, c1, c2)
+		path = simple_path_relinking(solution1, solution2, c1, c2, A)
 	
 	end	
 
@@ -426,6 +561,12 @@ function path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}
 		@info "Mode Heuristique 2"
 		# Obtient un chemin
 		path = heuristic2_path_relinking(solution1, solution2, c1, c2, A)
+	end	
+
+	if mode=="H4" 
+		@info "Mode Heuristique 4"
+		# Obtient un chemin
+		path = heuristic4_path_relinking(solution1, solution2, c1, c2, A)
 	end	
 
 	var = length(path)
@@ -517,7 +658,6 @@ function remove_dominated(solutions::Array{tSolution{Int64}})
 	return solutions
 end
 
-#=
 
 c1, c2, A = loadInstance2SPA("didactic5.txt") 
 
@@ -529,9 +669,20 @@ nbvar = size(A)[2]
 ok0 =  tSolution{Int64}(ones(Int64,nbvar),zeros(Int64,2))
 ok1 =  tSolution{Int64}(ones(Int64,nbvar),zeros(Int64,2))
 
-ok0.x = [0, 0, 1, 0, 0, 1, 1, 0]
-#ok1.x = [1, 0, 0, 0, 1, 0, 1, 0]
-ok1.x = [1, 0, 0, 1, 1, 0, 0, 0]
+
+# 14 48 
+#ok0.x = [0, 0, 1, 0, 0, 1, 1, 0]
+# 18 16
+ok0.x = [1, 0, 0, 0, 1, 0, 1, 0]
+# 20 7
+#ok1.x = [1, 0, 0, 1, 1, 0, 0, 0]
+#21 4
+ok1.x = [0, 0, 0, 0, 1, 0, 0, 1]
+
+
+#ok0.x = [0, 0, 1, 0, 0, 1, 1, 0]
+#ok1.x = [1, 0, 0, 1, 1, 0, 0, 0]
+
 
 ok0.y = evaluerSolution(ok0.x, c1, c2)
 ok1.y = evaluerSolution(ok1.x, c1, c2)
@@ -539,4 +690,3 @@ ok1.y = evaluerSolution(ok1.x, c1, c2)
 @show ok0, ok1
 
 path_relinking(ok0, ok1, c1, c2, A, "S")
-=#

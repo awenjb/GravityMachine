@@ -561,8 +561,8 @@ function GM( fname::String,
         # test d'admissibilite et marquage de la solution le cas echeant -------
         if vg[k].sFea
             verbose ? @printf("→ Admissible \n") : nothing
-            vU[k].x = vg[k].sInt.x
-            vU[k].y = vg[k].sInt.y
+            vU[k].x = copy(vg[k].sInt.x)
+            vU[k].y = copy(vg[k].sInt.y)
         else
             verbose ? @printf("→ x          \n") : nothing
             push!(vToSupr, k)
@@ -593,14 +593,14 @@ function GM( fname::String,
 
     for sol in vU
         print(sol.y[1], " ,  ", sol.y[2] , "\n")
-        #print(sol.x , "\n")
+        print(sol.x , "\n")
     end
 
     
     U = deepcopy(vU)
     for i in 1:(length(vU)-1)
         @info "-------- Solution $i"
-        path = path_relinking(vU[i], vU[i+1], c1, c2, A, "N")
+        path = path_relinking(vU[i], vU[i+1], c1, c2, A, "B")
         # Enlever les solutions initiales et cibles
         popfirst!(path)
         pop!(path)
@@ -680,9 +680,9 @@ end
 
 # ==============================================================================
 
-@time GM("sppaa02.txt", 6, 20, 20)
+#@time GM("sppaa02.txt", 6, 20, 20)
 #@time GM("sppnw03.txt", 6, 20, 20) #pb glpk
 #@time GM("sppnw10.txt", 6, 20, 20)
-#@time GM("didactic5.txt", 5, 5, 10)
+@time GM("didactic5.txt", 5, 5, 10)
 #@time GM("sppnw29.txt", 6, 30, 20)
 nothing
