@@ -570,7 +570,6 @@ function GM( fname::String,
     end
 
     # Detection des doublons
-    unique!(vU)
     for i=1:size(vU)[1] 
         for j=(i+1):size(vU)[1] 
             if vU[i].x == vU[j].x
@@ -579,14 +578,15 @@ function GM( fname::String,
         end
     end
     
+    unique!(vToSupr)
+    sort!(vToSupr)
     # Suppression des solutions non réalisables / doublons
     deleteat!(vU, vToSupr)
 
     vU = remove_dominated(vU)
 
-    @printf("6) Post-Traitement avec Path-relinking sur les solutions \n\n")    
+    @printf("\n6) Post-Traitement avec Path-relinking sur les solutions de U \n\n")    
 
-    @show length(vU)
     #=
     # Pretty print U 
     print("-------- vU \n")
@@ -596,7 +596,7 @@ function GM( fname::String,
         print(sol.x , "\n")
     end
     =#
-    @println("On a U contenant ", length(vU), " solutions")
+    println("U contient ", length(vU), " solutions")
     
     U = deepcopy(vU)
 
@@ -606,18 +606,24 @@ function GM( fname::String,
     # - Relier toutes les paires de solutions de U (couteux si U grand)
     # - Relier les paires de solutions de U ayant au moins x bits de différences (quel x ?)
 
-    for i in 1:(length(vU)-1)
-        @info "-------- Solution $i"
-        path = path_relinking(vU[i], vU[i+1], c1, c2, A, "B")
-        # Enlever les solutions initiales et cibles
-        popfirst!(path)
-        pop!(path)
-        # Ajouter les nouvelles solutions à U
-        for sol in path
-            push!(U, sol)
+    exec_time = @elapsed begin
+    
+    if length(vU) >= 2
+        for i in 1:(length(vU)-1)
+            @info " --- Path relinking n° $i --- "
+            path = path_relinking(vU[i], vU[i+1], c1, c2, A, "H4")
+            # Enlever les solutions initiales et cibles
+            popfirst!(path)
+            pop!(path)
+            # Ajouter les nouvelles solutions à U
+            for sol in path
+                push!(U, sol)
+            end
         end
     end
-   
+
+    end
+
     vToSupr = []
     # Detection des doublons
     for i=1:size(U)[1] 
@@ -629,7 +635,9 @@ function GM( fname::String,
     end
     deleteat!(U, vToSupr)
 
-    @println("Ajout dans U de ", length(U)-length(vU), " nouvelles solutions")
+    nbNewU = length(U)-length(vU)
+
+    println("\nAjout dans U de ", nbNewU, " nouvelles solutions \n\n")
 
     # ==========================================================================
     # FIN AJOUT POST-TRAITEMENT
@@ -693,6 +701,7 @@ function GM( fname::String,
         @printf("Quality measure: %5.2f %%\n", quality*100)
     end
 
+    return nbNewU, exec_time
 end
 
 # ==============================================================================
@@ -700,6 +709,29 @@ end
 #@time GM("sppaa02.txt", 6, 20, 20)
 #@time GM("sppnw03.txt", 6, 20, 20) #pb glpk
 #@time GM("sppnw10.txt", 6, 20, 20)
-@time GM("didactic5.txt", 5, 5, 10)
+#@time GM("didactic5.txt", 5, 5, 10)
 #@time GM("sppnw29.txt", 6, 30, 20)
+
+# Exp
+
+results = []
+instances = ["didactic3.txt", "didactic5.txt", 
+            "sppaa02.txt", "sppaa03.txt", "sppaa05.txt",
+            "sppnw01.txt", "sppnw03.txt", "sppnw04.txt", #"sppnw05.txt", "sppnw06.txt", "sppnw07.txt", 
+            "sppnw08.txt", "sppnw09.txt", "sppnw10.txt", #"sppnw11.txt", "sppnw12.txt", "sppnw13.txt", "sppnw14.txt", 
+            "sppnw15.txt", "sppnw16.txt", "sppnw17.txt", #"sppnw18.txt", "sppnw19.txt", "sppnw20.txt", "sppnw21.txt", 
+            "sppnw22.txt", "sppnw23.txt", "sppnw24.txt", #"sppnw25.txt", "sppnw26.txt", "sppnw27.txt", "sppnw28.txt", 
+            "sppnw29.txt", "sppnw30.txt", "sppnw31.txt", #"sppnw32.txt", "sppnw33.txt", "sppnw34.txt", "sppnw35.txt", 
+            "sppnw36.txt", "sppnw37.txt", "sppnw38.txt", #"sppnw39.txt", "sppnw40.txt", "sppnw41.txt", "sppnw42.txt", 
+            "sppnw43.txt"]
+
+
+for i in eachindex(instances)
+    push!(results, (instances[i], GM(instances[i], 6, 20, 20)))
+end
+
+for i in results
+    println(i)
+end
+
 nothing
