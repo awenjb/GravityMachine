@@ -276,19 +276,19 @@ function heuristic2_path_relinking(solution1::tSolution{Int64}, solution2::tSolu
 		# Récupérer résultats
 		current_solution.x = value.(x)  #TODO gérer les approximations et fractions dans .x
 
-		@info "Solutions du soveurs"
+		#@info "Solutions du soveurs"
 
 		# Récupérer la première valeur la plus proche de 0 ou 1
 		check::Vector{Float64} = current_solution.x[diff_indices]
-		@show check
+		#@show check
 
 		new_index = closer_to_0_1(check)
 		# donc diff_indices[new_index] donne l'indice de l'élément à fixer dans x
-		@show diff_indices
-		@show new_index
-		@show diff_indices[new_index]
+		#@show diff_indices
+		#@show new_index
+		#@show diff_indices[new_index]
 
-		@info "Nouvelle solution intermédiaire"
+		#@info "Nouvelle solution intermédiaire"
 
 		#var = current_solution.x[diff_indices[new_index]]
 		# Rendre la solution entière pour obtenir une solution intermédiaire
@@ -308,8 +308,8 @@ function heuristic2_path_relinking(solution1::tSolution{Int64}, solution2::tSolu
 		
 		current_solution.y = evaluerSolution(current_solution.x, c1, c2)
 
-		@show current_solution.x
-		@show current_solution.y
+		#@show current_solution.x
+		#@show current_solution.y
 
 		# Ajouter new_index dans les variables fixées à 0 ou 1
 		if current_solution.x[diff_indices[new_index]] == 1
@@ -318,23 +318,23 @@ function heuristic2_path_relinking(solution1::tSolution{Int64}, solution2::tSolu
 			push!(v0, diff_indices[new_index])
 		end
 		
-		@info "Nouveaux diff indices"
+		#@info "Nouveaux diff indices"
 
-		@show v0,v1
+		#@show v0,v1
 		# supprimer new_index de diff_indices
 		#filter!(x -> x != new_index, diff_indices)
 		deleteat!(diff_indices, new_index)
 
-		@show diff_indices
+		#@show diff_indices
 
 		# Ajout au chemin
 		push!(intermediate_solutions, deepcopy(current_solution))
 
 	end
-	@info "sorti"
+	#@info "sorti"
 	
 	push!(intermediate_solutions, solution2)
-	@show intermediate_solutions
+	#@show intermediate_solutions
 	# supprimer doublons
 	supr = []
 	for i in eachindex(intermediate_solutions)
@@ -344,13 +344,13 @@ function heuristic2_path_relinking(solution1::tSolution{Int64}, solution2::tSolu
 			end
 		end
 	end
-	@info "sorti2"
-	@show supr
+	#@info "sorti2"
+	#@show supr
 	unique!(supr)
 	deleteat!(intermediate_solutions, supr)
-	@info "sorti3"
+	#@info "sorti3"
 	
-	@show intermediate_solutions
+	#@show intermediate_solutions
 	return intermediate_solutions
 
 end	
