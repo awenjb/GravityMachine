@@ -1,8 +1,3 @@
-#using JuMP, GLPK, Printf, Plots, Random
-#include("GMdatastructures.jl")
-#include("GMjumpModels.jl")
-#include("GMparsers.jl")
-
 # ==============================================================================
 # Path relinking entre deux solutions
 # Retourne un chemin entre les deux solutions (comprises)
@@ -144,51 +139,6 @@ function brute_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{
     end
 	unique!(supr)
     deleteat!(intermediate_solutions, supr)
-
-
-	#=
-	# affichage ?
-	println("---Affichage")
-	z1::Vector{Float64} = []
-	z2::Vector{Float64} = []
-	for sol in intermediate_solutions
-		push!(z1, sol.y[1])
-		push!(z2, sol.y[2])
-	end
-	@show z1
-	@show z2
-	
-	Uz1::Vector{Float64} = [14.0,18.0,20.0,21.0]
-	Uz2::Vector{Float64} = [48.0,16.0,7.0,4.0]
-
-	z1 = vcat(Uz1, z1)
-	z2 = vcat(Uz2, z2)
-	@show length(z1)
-
-	colors = fill(:blue, length(z1))  # Tous les points sont bleus
-	colors[1] = :green  # Premier point rouge
-	colors[2] = :green  # Premier point rouge
-	colors[3] = :green  # Premier point rouge
-	colors[4] = :green  # Premier point rouge
-	colors[5] = :red  # Premier point rouge
-	colors[41] = :orange  # Premier point rouge
-	colors[end] = :red  # Dernier point rouge
-
-	@show z1[41], z2[41]
-
-	markersizes = fill(4, length(z1))  # Taille standard pour tous les points
-	markersizes[1] = 8 # Premier point rouge
-	markersizes[2] = 8 # Premier point rouge
-	markersizes[3] = 8 # Premier point rouge
-	markersizes[4] = 8 # Premier point rouge
-	markersizes[41] = 8
-	markersizes[5] = 4  # Taille plus grande pour le premier point
-	markersizes[end] = 4
-
-	pl = scatter(z1, z2, label="Enum", color=colors, marker=:circle, markersize=markersizes, linewidth=2)
-	display(pl)
-	=#
-
 
     return intermediate_solutions
 end	
@@ -407,10 +357,12 @@ end
 
 
 # ==============================================================================
-# Idée :
-# Pour la 1ere variable en conflit entre s1 et s2, fixer s1 à la valeure de s2,
+# Path relinking avec résolution d'un sous problème
+# fixe les variables communes des deux solutions
+# ajouter des contraintes pour éviter de retomber sur les solutions initiales et cibles
+# sens d'optimisation = somme pondérée en fonction des solutions initiales et cibles
 # résoudre le sous problème résultant avec relax linéaire puis arrondir pour obtenir une nouvelle solution
-# ajouter un ranking ???
+# TODO ajouter un ranking pour obtenir plus de solutions intermédiares
 function heuristic4_path_relinking(solution1::tSolution{Int64}, solution2::tSolution{Int64}, c1::Array{Int,1}, c2::Array{Int,1}, A)
 
 	# Solution courrante

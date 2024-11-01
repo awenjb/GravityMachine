@@ -714,6 +714,7 @@ end
 
 # Exp
 
+#=
 results = []
 instances = ["didactic3.txt", "didactic5.txt", 
             "sppaa02.txt", "sppaa03.txt", "sppaa05.txt",
@@ -733,5 +734,5 @@ end
 for i in results
     println(i)
 end
-
+=#
 nothing
