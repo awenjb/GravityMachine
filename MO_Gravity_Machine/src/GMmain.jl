@@ -24,7 +24,7 @@ include("GMmopPrimitives.jl")  # usuals algorithms in multiobjective optimizatio
 include("GMperturbation.jl")   # routines dealing with the perturbation of a solution when a cycle is detected
 include("GMquality.jl")        # quality indicator of the bound set U generated
 
-include("GMpathRelinking.jl")
+include("GMpathRelinking.jl")  # Path-relinking heuristics to attempt improvement of the upper bound
 
 # ==============================================================================
 # Ajout d'une solution relachee initiale a un generateur
@@ -465,7 +465,7 @@ function GM( fname::String,
 
     @printf("4) terraformation generateur par generateur \n\n")
 
-    nonFeasibleSolutions = Vector{tSolution{Int64}}(undef,0)
+    nonFeasibleRoundedSolutions = Vector{tSolution{Int64}}(undef,0)
 
 
     for k in [i for i in 1:nbgen if !isFeasible(vg,i)]
@@ -473,12 +473,13 @@ function GM( fname::String,
         trial = 0
         H =(Vector{Int64})[]
 
-#perturbSolution30!(vg,k,c1,c2,d)
+    #perturbSolution30!(vg,k,c1,c2,d)
 
         # rounding solution : met a jour sInt dans vg --------------------------
         #roundingSolution!(vg,k,c1,c2,d)  # un cone
         #roundingSolutionnew24!(vg,k,c1,c2,d) # deux cones
-        push!(nonFeasibleSolutions, roundingSolutionNew23!(vg,k,c1,c2,d)) # un cone et LS sur generateur
+        #roundingSolutionnew23!(vg,k,c1,c2,d) # deux cones
+        roundingSolutionNew25!(vg,k,c1,c2,d,nonFeasibleRoundedSolutions) # un cone et LS sur generateur
 
         push!(H,[vg[k].sInt.y[1],vg[k].sInt.y[2]])
         println("   t=",trial,"  |  Tps=", round(time()- temps, digits=4))
@@ -496,7 +497,8 @@ function GM( fname::String,
                 # rounding solution : met a jour sInt dans vg --------------------------
                 #roundingSolution!(vg,k,c1,c2,d)
                 #roundingSolutionnew24!(vg,k,c1,c2,d)
-                push!(nonFeasibleSolutions, roundingSolutionNew23!(vg,k,c1,c2,d))
+                #roundingSolutionNew23!(vg,k,c1,c2,d)
+                roundingSolutionNew25!(vg,k,c1,c2,d,nonFeasibleRoundedSolutions)
                 println("   t=",trial,"  |  Tps=", round(time()- temps, digits=4))
 
                 # test detection cycle sur solutions entieres ------------------
@@ -678,9 +680,9 @@ function GM( fname::String,
     println("non feasible solutions :")
     
 
-    println(first(nonFeasibleSolutions).x)
+    println(first(nonFeasibleRoundedSolutions).x)
 
-    for e in nonFeasibleSolutions
+    for e in nonFeasibleRoundedSolutions
         println(e.y)
     end
 
