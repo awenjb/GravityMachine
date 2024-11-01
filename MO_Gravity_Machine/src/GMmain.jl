@@ -546,13 +546,12 @@ function GM( fname::String,
     end
     #--> TODO : stocker l'EBP dans U proprement
 
-
+    # ==========================================================================
+    # AJOUT POST-TRAITEMENT
     # ==========================================================================
     # Stockage à part des valeurs des variables  des points réalisables de vg pour path relinking
 
     # vU ensemble bornant supérieur (solutions non dominées)
-
-
     vU = Vector{tSolution{Int64}}(undef,nbgen)
     for j = 1:nbgen
         vU[j] = tSolution{Int64}(zeros(Int64,nbvar),zeros(Int64,nbobj))
@@ -560,22 +559,20 @@ function GM( fname::String,
 
     vToSupr = zeros(Int64, 0)
 
+    # Verification d'admissibilite
     for k=1:nbgen
-        # test d'admissibilite et marquage de la solution le cas echeant -------
+        # test d'admissibilite et marquage de la solution le cas echeant 
         if vg[k].sFea
             verbose ? @printf("→ Admissible \n") : nothing
-            vU[k].x = vg[k].sInt.x
-            vU[k].y = vg[k].sInt.y
+            vU[k].x = copy(vg[k].sInt.x)
+            vU[k].y = copy(vg[k].sInt.y)
         else
             verbose ? @printf("→ x          \n") : nothing
             push!(vToSupr, k)
         end
     end
 
-
-
     # Detection des doublons
-    unique!(vU)
     for i=1:size(vU)[1] 
         for j=(i+1):size(vU)[1] 
             if vU[i].x == vU[j].x
@@ -584,41 +581,70 @@ function GM( fname::String,
         end
     end
     
-    # Suppression des éléments non réalisables / doublons"
+    unique!(vToSupr)
+    sort!(vToSupr)
+    # Suppression des solutions non réalisables / doublons
     deleteat!(vU, vToSupr)
 
     vU = remove_dominated(vU)
 
-    @printf("6) Post-Traitement avec Path-relinking sur les solutions\n\n")    
+    @printf("\n6) Post-Traitement avec Path-relinking sur les solutions de U \n\n")    
 
-    @show length(vU)
-    # Pretty print U 
-    print("-------- vU \n")
-    for sol in vU
-        print(sol.y[1], " ,  ", sol.y[2] , "\n")
-    end
-
-    
-    U = deepcopy(vU)
-    for i in 1:(length(vU)-1)
-        @info "-------- Solution $i"
-        path = path_relinking(vU[i], vU[i+1], c1, c2, A, "N")
-        # Enlever les solutions initiales et cibles
-        popfirst!(path)
-        pop!(path)
-        # Ajouter les nouvelles solutions à U
-        for sol in path
-            push!(U, sol)
-        end
-    end
-   
     #=
     # Pretty print U 
-    print("-------- U \n")
-    for sol in U
-        print(sol.x, "\n")
+    print("-------- vU \n")
+
+    for sol in vU
+        print(sol.y[1], " ,  ", sol.y[2] , "\n")
+        print(sol.x , "\n")
     end
     =#
+    println("U contient ", length(vU), " solutions")
+    
+    U = deepcopy(vU)
+
+    # STRATEGIE de Path-relinking
+    # Relier les solutions une a une d'une lexico à l'autre
+    # Autre stratégies (non implémentées)
+    # - Relier toutes les paires de solutions de U (couteux si U grand)
+    # - Relier les paires de solutions de U ayant au moins x bits de différences (quel x ?)
+
+    exec_time = @elapsed begin
+    
+    if length(vU) >= 2
+        for i in 1:(length(vU)-1)
+            @info " --- Path relinking n° $i --- "
+            path = path_relinking(vU[i], vU[i+1], c1, c2, A, "H4")
+            # Enlever les solutions initiales et cibles
+            popfirst!(path)
+            pop!(path)
+            # Ajouter les nouvelles solutions à U
+            for sol in path
+                push!(U, sol)
+            end
+        end
+    end
+
+    end
+
+    vToSupr = []
+    # Detection des doublons
+    for i=1:size(U)[1] 
+        for j=(i+1):size(U)[1] 
+            if U[i].x == U[j].x
+                push!(vToSupr, j)
+            end
+        end
+    end
+    deleteat!(U, vToSupr)
+
+    nbNewU = length(U)-length(vU)
+
+    println("\nAjout dans U de ", nbNewU, " nouvelles solutions \n\n")
+
+    # ==========================================================================
+    # FIN AJOUT POST-TRAITEMENT
+    # ==========================================================================
 
     # ==========================================================================
     @printf("7) Edition des resultats \n\n")
@@ -702,17 +728,38 @@ function GM( fname::String,
         @printf("Quality measure: %5.2f %%\n", quality*100)
     end
 
-
-    return X_EBP_frontiere, Y_EBP_frontiere, X_EBP, Y_EBP
+    return nbNewU, exec_time
 end
 
 # ==============================================================================
 
-# @time GM("sppaa02.txt", 6, 20, 20)
-# @time GM("sppnw03.txt", 6, 20, 20) #pb glpk
-# @time GM("sppnw10.txt", 6, 20, 20)
-# @time GM("didactic5.txt", 5, 5, 10)
-# GM("didactic5.txt", 5, 5, 10)
-# @time GM("sppnw29.txt", 6, 30, 20)
-GM("sppnw29.txt", 6, 30, 20)
+#@time GM("sppaa02.txt", 6, 20, 20)
+#@time GM("sppnw03.txt", 6, 20, 20) #pb glpk
+#@time GM("sppnw10.txt", 6, 20, 20)
+#@time GM("didactic5.txt", 5, 5, 10)
+#@time GM("sppnw29.txt", 6, 30, 20)
+
+# Exp
+
+#=
+results = []
+instances = ["didactic3.txt", "didactic5.txt", 
+            "sppaa02.txt", "sppaa03.txt", "sppaa05.txt",
+            "sppnw01.txt", "sppnw03.txt", "sppnw04.txt", #"sppnw05.txt", "sppnw06.txt", "sppnw07.txt", 
+            "sppnw08.txt", "sppnw09.txt", "sppnw10.txt", #"sppnw11.txt", "sppnw12.txt", "sppnw13.txt", "sppnw14.txt", 
+            "sppnw15.txt", "sppnw16.txt", "sppnw17.txt", #"sppnw18.txt", "sppnw19.txt", "sppnw20.txt", "sppnw21.txt", 
+            "sppnw22.txt", "sppnw23.txt", "sppnw24.txt", #"sppnw25.txt", "sppnw26.txt", "sppnw27.txt", "sppnw28.txt", 
+            "sppnw29.txt", "sppnw30.txt", "sppnw31.txt", #"sppnw32.txt", "sppnw33.txt", "sppnw34.txt", "sppnw35.txt", 
+            "sppnw36.txt", "sppnw37.txt", "sppnw38.txt", #"sppnw39.txt", "sppnw40.txt", "sppnw41.txt", "sppnw42.txt", 
+            "sppnw43.txt"]
+
+
+for i in eachindex(instances)
+    push!(results, (instances[i], GM(instances[i], 6, 20, 20)))
+end
+
+for i in results
+    println(i)
+end
+=#
 nothing
