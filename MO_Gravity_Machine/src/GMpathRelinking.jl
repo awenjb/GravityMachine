@@ -200,6 +200,7 @@ end
 # Arguments :
 - `U` : The upper bounding set of solutions.
 - `roundedSols` : The set of non feasible solutions considered.
+- `numberOfRoundedSolPerIteration::Int` : The number of rounded solutions to be considered as bias at for each pair of source/target solutions.
 - `A` : The constraint matrix of the studied SPA instance.
 - `c1::Vector` : The vector of costs of the first objective function.
 - `c2::Vector` : The vector of costs of the second objective function.
@@ -207,7 +208,7 @@ end
 - `biasAmount::tSolution` : The amount of indices that should be considered in the bias permutation, also maximum amount of bias applied.
 - `pathRelinkingPermutation::tSolution` : The permutation of the order the indices are considered during the path relinking process.
 """
-function biased_path_relinking(U::Vector{tSolution{Int}}, roundedSols::Vector{tSolution{Int}}, A, c1 ,c2, biasPermutation::Vector{Int}=collect(1:length(biasSol.x)), biasAmount::Int=length(biasSol.x), pathRelinkingPermutation=collect(1:length(sourceSol.x)))
+function biased_path_relinking(U::Vector{tSolution{Int}}, roundedSols::Vector{tSolution{Int}}, numberOfRoundedSolPerIteration::Int, A, c1 ,c2, biasPermutation::Vector{Int}=collect(1:length(biasSol.x)), biasAmount::Int=length(biasSol.x), pathRelinkingPermutation=collect(1:length(sourceSol.x)))
 	U = [update(e,c1,c2) for e in remove_duplicates(U)] # Remove duplicates in U and update the Y values of the Upper bound solutions
 	
 	# Create pairs
@@ -221,7 +222,8 @@ function biased_path_relinking(U::Vector{tSolution{Int}}, roundedSols::Vector{tS
 		targetSol = pair[2]
 		# Sort the rounded sols
 		sortedRoundedSols = phase2_biased_path_relinking(roundedSols, sourceSol, targetSol, optimism, c1, c2)
-
+		sortedRoundedSols = sortedRoundedSols[1:numberOfRoundedSolPerIteration]
+		
 		for biasSol in sortedRoundedSols
 			phase3Sols = phase3_biased_path_relinking(sourceSol, targetSol, biasSol, biasPermutation, biasAmount, pathRelinkingPermutation)
 			feasibleSols = [s for s in phase3Sols if isFeasible(s, A)]
