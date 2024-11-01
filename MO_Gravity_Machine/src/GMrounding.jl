@@ -211,6 +211,10 @@ end
 # ==============================================================================
 # arrondi la solution correspondant au generateur (pas d'historique donc)
 # version avec voisinage et selection d'un voisin selon distance L1 avec generateur
+"""
+Rounds solution corresponding to generator k in vg.
+This version uses a neighborhood and selection of a neighbor depending of the L1 distance with the generator.
+"""
 function roundingSolutionNew23!(vg::Vector{tGenerateur}, k::Int64, c1::Array{Int,1}, c2::Array{Int,1}, d::tListDisplay)
 
     nbvar = length(vg[k].sInt.x)
@@ -316,10 +320,12 @@ function roundingSolutionNew23!(vg::Vector{tGenerateur}, k::Int64, c1::Array{Int
         # archivage pour tous les generateurs
         push!(d.XInt,vg[k].sInt.y[1])
         push!(d.YInt,vg[k].sInt.y[2])
+        return vg[k].sInt
     elseif generateurVisualise == k
         # archivage seulement pour le generateur k
         push!(d.XInt,vg[k].sInt.y[1])
         push!(d.YInt,vg[k].sInt.y[2])
+        return vg[k].sInt
     end      
 
 end
