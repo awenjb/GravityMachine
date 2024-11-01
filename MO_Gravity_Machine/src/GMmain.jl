@@ -669,8 +669,7 @@ function GM( fname::String,
     println("##########################################")
     println("##########################################")
     
-    # Plots the collected non feasible integer solutions ?
-    graphic ? scatter([e.y[1] for e in nonFeasibleSolutions], [e.y[2] for e in nonFeasibleSolutions], color="orange", marker="s", label= "int sols") : nothing
+    # # Plots the collected non feasible integ easibleSolutions], [e.y[2] for e in nonFeasibleSolutions], color="blue", marker="s", label= "int sols") : nothing
 
     # Donne l'ensemble bornant primal obtenu + la frontiere correspondante -----
     #--> TODO : stocker l'EBP dans U proprement
@@ -707,9 +706,9 @@ end
 
 # ==============================================================================
 
-@time GM("sppaa02.txt", 6, 20, 20)
+# @time GM("sppaa02.txt", 6, 20, 20)
 #@time GM("sppnw03.txt", 6, 20, 20) #pb glpk
 #@time GM("sppnw10.txt", 6, 20, 20)
-#@time GM("didactic5.txt", 5, 5, 10)
+@time GM("didactic5.txt", 5, 5, 10)
 #@time GM("sppnw29.txt", 6, 30, 20)
 nothing
